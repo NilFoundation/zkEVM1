@@ -14,7 +14,11 @@ Result call_impl(StackTop stack, int64_t gas_left, ExecutionState& state) noexce
         Op == OP_CALL || Op == OP_CALLCODE || Op == OP_DELEGATECALL || Op == OP_STATICCALL);
 
     const auto gas = stack.pop();
+#ifdef __ZKLLVM__
+    const evmc::address dst = stack.pop();
+#else
     const auto dst = intx::be::trunc<evmc::address>(stack.pop());
+#endif
     const auto value = (Op == OP_STATICCALL || Op == OP_DELEGATECALL) ? 0 : stack.pop();
     const auto has_value = value != 0;
     const auto input_offset_u256 = stack.pop();
@@ -51,14 +55,22 @@ Result call_impl(StackTop stack, int64_t gas_left, ExecutionState& state) noexce
     msg.recipient = (Op == OP_CALL || Op == OP_STATICCALL) ? dst : state.msg->recipient;
     msg.code_address = dst;
     msg.sender = (Op == OP_DELEGATECALL) ? state.msg->sender : state.msg->recipient;
-    msg.value =
-        (Op == OP_DELEGATECALL) ? state.msg->value : intx::be::store<evmc::uint256be>(value);
+    msg.value = (Op == OP_DELEGATECALL) ? state.msg->value :
+#ifdef __ZKLLVM__
+                                          value;
+#else
+                                          intx::be::store<evmc::uint256be>(value);
+#endif
 
     if (input_size > 0)
     {
+#ifdef __ZKLLVM__
+        assert(false);
+#else
         // input_offset may be garbage if input_size == 0.
         msg.input_data = &state.memory[input_offset];
         msg.input_size = input_size;
+#endif
     }
 
     auto cost = has_value ? 9000 : 0;
@@ -93,7 +105,7 @@ Result call_impl(StackTop stack, int64_t gas_left, ExecutionState& state) noexce
     if (state.msg->depth >= 1024)
         return {EVMC_SUCCESS, gas_left};  // "Light" failure.
 
-    if (has_value && 
+    if (has_value &&
 #ifdef __ZKLLVM__
         state.host.get_balance(state.msg->recipient) < value)
 #else
@@ -188,14 +200,23 @@ Result create_impl(StackTop stack, int64_t gas_left, ExecutionState& state) noex
     msg.kind = (Op == OP_CREATE) ? EVMC_CREATE : EVMC_CREATE2;
     if (init_code_size > 0)
     {
+#ifdef __ZKLLVM__
+        assert(false);
+#else
         // init_code_offset may be garbage if init_code_size == 0.
         msg.input_data = &state.memory[init_code_offset];
         msg.input_size = init_code_size;
+#endif
     }
     msg.sender = state.msg->recipient;
     msg.depth = state.msg->depth + 1;
+#ifdef __ZKLLVM__
+    msg.create2_salt = salt;
+    msg.value = endowment;
+#else
     msg.create2_salt = intx::be::store<evmc::bytes32>(salt);
     msg.value = intx::be::store<evmc::uint256be>(endowment);
+#endif
 
     const auto result = state.host.call(msg);
     gas_left -= msg.gas - result.gas_left;

@@ -121,7 +121,7 @@ struct AdvancedExecutionState : ExecutionState
 union InstructionArgument
 {
     int64_t number;
-    const intx::uint256* push_value;
+    const uint256* push_value;
     uint64_t small_push_value;
     BlockInfo block{};
 };
@@ -168,7 +168,7 @@ struct AdvancedCodeAnalysis
     std::vector<Instruction> instrs;
 
     /// Storage for large push values.
-    std::vector<intx::uint256> push_values;
+    std::vector<uint256> push_values;
 
     /// The offsets of JUMPDESTs in the original code.
     /// These are values that JUMP/JUMPI receives as an argument.

@@ -236,6 +236,7 @@ int64_t dispatch(const CostTable& cost_table, ExecutionState& state, int64_t gas
     {
 // #pragma zk_multi_prover
         {
+#ifndef __ZKLLVM__
             if constexpr (TracingEnabled)
             {
                 const auto offset = static_cast<uint32_t>(position.code_it - code);
@@ -246,6 +247,7 @@ int64_t dispatch(const CostTable& cost_table, ExecutionState& state, int64_t gas
                         offset, position.stack_top, stack_height, gas, state);
                 }
             }
+#endif
 
             const auto op = *position.code_it;
             switch (op)
@@ -362,12 +364,14 @@ evmc_result execute(
     }
 
 
+#ifndef __ZKLLVM__
     if (INTX_UNLIKELY(tracer != nullptr))
     {
         tracer->notify_execution_start(state.rev, *state.msg, analysis.executable_code);
         gas = dispatch<true>(cost_table, state, gas, code.data(), tracer);
     }
     else
+#endif
     {
 #if EVMONE_CGOTO_SUPPORTED
         if (vm.cgoto)

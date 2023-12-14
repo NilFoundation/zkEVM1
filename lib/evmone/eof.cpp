@@ -65,6 +65,7 @@ EOFValidationError get_section_missing_error(uint8_t section_id) noexcept
     default:
 #ifdef __ZKLLVM__
         __builtin_assigner_exit_check(false);
+        __builtin_unreachable();
 #else
         intx::unreachable();
 #endif

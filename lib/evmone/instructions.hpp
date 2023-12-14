@@ -9,7 +9,7 @@
 #include "instructions_traits.hpp"
 #include "instructions_xmacro.hpp"
 #ifdef __ZKLLVM__
-#include <nil/crypto3/hash/keccak.hpp>
+// #include <nil/crypto3/hash/keccak.hpp>
 #else
 #include <ethash/keccak.hpp>
 #endif
@@ -99,18 +99,15 @@ inline constexpr int64_t copy_cost(uint64_t size_in_bytes) noexcept
     return gas_left;
 }
 
+#ifndef __ZKLLVM__
 /// Check memory requirements of a reasonable size.
 inline bool check_memory(
     int64_t& gas_left, Memory& memory, const uint256& offset, uint64_t size) noexcept
 {
-#ifdef __ZKLLVM__
-    if (offset > max_buffer_size)
-#else
     // TODO: This should be done in intx.
     // There is "branchless" variant of this using | instead of ||, but benchmarks difference
     // is within noise. This should be decided when moving the implementation to intx.
     if (((offset[3] | offset[2] | offset[1]) != 0) || (offset[0] > max_buffer_size))
-#endif
         return false;
 
     const auto new_size = static_cast<uint64_t>(offset) + size;
@@ -119,6 +116,7 @@ inline bool check_memory(
 
     return gas_left >= 0;  // Always true for no-grow case.
 }
+#endif
 
 /// Check memory requirements for "copy" instructions.
 inline bool check_memory(
@@ -129,15 +127,23 @@ inline bool check_memory(
 
 #ifdef __ZKLLVM__
     if (size > max_buffer_size)
+        return false;
+    if (offset > max_buffer_size)
+        return false;
+    const auto new_size = static_cast<uint64_t>(offset) + size;
+    if (new_size > memory.size())
+        gas_left = grow_memory(gas_left, memory, new_size);
+
+    return gas_left >= 0;  // Always true for no-grow case.
 #else
     // This check has 3 same word checks with the check above.
     // However, compilers do decent although not perfect job unifying common instructions.
     // TODO: This should be done in intx.
     if (((size[3] | size[2] | size[1]) != 0) || (size[0] > max_buffer_size))
-#endif
         return false;
 
     return check_memory(gas_left, memory, offset, static_cast<uint64_t>(size));
+#endif
 }
 
 namespace instr::core
@@ -251,7 +257,16 @@ inline Result exp(StackTop stack, int64_t gas_left, ExecutionState& state) noexc
     if ((gas_left -= additional_cost) < 0)
         return {EVMC_OUT_OF_GAS, gas_left};
 
+#ifdef __ZKLLVM__
+    uint256 bound = exponent;
+    exponent = base;
+    for (uint256 i = 2, bound = exponent; i < bound; ++i)
+    {
+        exponent *= base;
+    }
+#else
     exponent = intx::exp(base, exponent);
+#endif
     return {EVMC_SUCCESS, gas_left};
 }
 
@@ -260,6 +275,7 @@ inline void signextend(StackTop stack) noexcept
     const auto& ext = stack.pop();
     auto& x = stack.top();
 
+#ifndef __ZKLLVM__
     if (ext < 31)  // For 31 we also don't need to do anything.
     {
         const auto e = ext[0];  // uint256 -> uint64.
@@ -286,6 +302,7 @@ inline void signextend(StackTop stack) noexcept
         for (size_t i = 3; i > sign_word_index; --i)
             x[i] = sign_ex;  // Clear extended words.
     }
+#endif
 }
 
 inline void lt(StackTop stack) noexcept
@@ -399,6 +416,7 @@ inline void sar(StackTop stack) noexcept
 #endif
 }
 
+#ifndef __ZKLLVM__
 inline Result keccak256(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     const auto& index = stack.pop();
@@ -422,17 +440,28 @@ inline Result keccak256(StackTop stack, int64_t gas_left, ExecutionState& state)
 #endif
     return {EVMC_SUCCESS, gas_left};
 }
+#else
+Result keccak256(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept;
+#endif
 
 
 inline void address(StackTop stack, ExecutionState& state) noexcept
 {
+#ifdef __ZKLLVM__
+    stack.push(state.msg->recipient);
+#else
     stack.push(intx::be::load<uint256>(state.msg->recipient));
+#endif
 }
 
 inline Result balance(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     auto& x = stack.top();
+#ifdef __ZKLLVM__
+    evmc::address addr = x;
+#else
     const auto addr = intx::be::trunc<evmc::address>(x);
+#endif
 
     if (state.rev >= EVMC_BERLIN && state.host.access_account(addr) == EVMC_ACCESS_COLD)
     {
@@ -482,15 +511,16 @@ inline void calldataload(StackTop stack, ExecutionState& state) noexcept
         index = 0;
     else
     {
+#ifdef __ZKLLVM__
+        assert(index % 32 == 0);
+        index = state.msg->input_data[index / 32];
+#else
         const auto begin = static_cast<size_t>(index);
         const auto end = std::min(begin + 32, state.msg->input_size);
 
         uint8_t data[32] = {};
         for (size_t i = 0; i < (end - begin); ++i)
             data[i] = state.msg->input_data[begin + i];
-#ifdef __ZKLLVM__
-        index = data;
-#else
         index = intx::be::load<uint256>(data);
 #endif
     }
@@ -614,7 +644,11 @@ inline void blobbasefee(StackTop stack, ExecutionState& state) noexcept
 inline Result extcodesize(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     auto& x = stack.top();
+#ifdef __ZKLLVM__
+    const evmc::address addr = x;
+#else
     const auto addr = intx::be::trunc<evmc::address>(x);
+#endif
 
     if (state.rev >= EVMC_BERLIN && state.host.access_account(addr) == EVMC_ACCESS_COLD)
     {
@@ -628,7 +662,11 @@ inline Result extcodesize(StackTop stack, int64_t gas_left, ExecutionState& stat
 
 inline Result extcodecopy(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
+#ifdef __ZKLLVM__
+    const evmc::address addr = stack.pop();
+#else
     const auto addr = intx::be::trunc<evmc::address>(stack.pop());
+#endif
     const auto& mem_index = stack.pop();
     const auto& input_index = stack.pop();
     const auto& size = stack.pop();
@@ -695,7 +733,11 @@ inline Result returndatacopy(StackTop stack, int64_t gas_left, ExecutionState& s
 inline Result extcodehash(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     auto& x = stack.top();
+#ifdef __ZKLLVM__
+    const evmc::address addr = x;
+#else
     const auto addr = intx::be::trunc<evmc::address>(x);
+#endif
 
     if (state.rev >= EVMC_BERLIN && state.host.access_account(addr) == EVMC_ACCESS_COLD)
     {
@@ -910,9 +952,15 @@ inline Result gas(StackTop stack, int64_t gas_left, ExecutionState& /*state*/) n
 inline void tload(StackTop stack, ExecutionState& state) noexcept
 {
     auto& x = stack.top();
+#ifdef __ZKLLVM__
+    const evmc::address key = x;
+    const auto value = state.host.get_transient_storage(state.msg->recipient, key);
+    x = value;
+#else
     const auto key = intx::be::store<evmc::bytes32>(x);
     const auto value = state.host.get_transient_storage(state.msg->recipient, key);
     x = intx::be::load<uint256>(value);
+#endif
 }
 
 inline Result tstore(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
@@ -920,8 +968,13 @@ inline Result tstore(StackTop stack, int64_t gas_left, ExecutionState& state) no
     if (state.in_static_mode())
         return {EVMC_STATIC_MODE_VIOLATION, 0};
 
+#ifdef __ZKLLVM__
+    const evmc::bytes32 key = stack.pop();
+    const evmc::bytes32 value = stack.pop();
+#else
     const auto key = intx::be::store<evmc::bytes32>(stack.pop());
     const auto value = intx::be::store<evmc::bytes32>(stack.pop());
+#endif
     state.host.set_transient_storage(state.msg->recipient, key, value);
     return {EVMC_SUCCESS, gas_left};
 }
@@ -973,6 +1026,7 @@ inline uint64_t load_partial_push_data<4>(code_iterator pos) noexcept
 template <size_t Len>
 inline code_iterator push(StackTop stack, ExecutionState& /*state*/, code_iterator pos) noexcept
 {
+#ifndef __ZKLLVM__
     constexpr auto num_full_words = Len / sizeof(uint64_t);
     constexpr auto num_partial_bytes = Len % sizeof(uint64_t);
     auto data = pos + 1;
@@ -994,6 +1048,7 @@ inline code_iterator push(StackTop stack, ExecutionState& /*state*/, code_iterat
         data += sizeof(uint64_t);
     }
 
+#endif
     return pos + (Len + 1);
 }
 
@@ -1019,6 +1074,7 @@ inline void swap(StackTop stack) noexcept
 
     auto& a = stack[N];
     auto& t = stack.top();
+#ifndef __ZKLLVM__
     auto t0 = t[0];
     auto t1 = t[1];
     auto t2 = t[2];
@@ -1028,6 +1084,9 @@ inline void swap(StackTop stack) noexcept
     a[1] = t1;
     a[2] = t2;
     a[3] = t3;
+#else
+    std::swap(t, a);
+#endif
 }
 
 inline code_iterator dupn(StackTop stack, ExecutionState& state, code_iterator pos) noexcept
@@ -1170,7 +1229,11 @@ inline Result log(StackTop stack, int64_t gas_left, ExecutionState& state) noexc
 
     std::array<evmc::bytes32, NumTopics> topics;  // NOLINT(cppcoreguidelines-pro-type-member-init)
     for (auto& topic : topics)
+#ifdef __ZKLLVM__
+        topic = stack.pop();
+#else
         topic = intx::be::store<evmc::bytes32>(stack.pop());
+#endif
 
     const auto data = s != 0 ? &state.memory[o] : nullptr;
     state.host.emit_log(state.msg->recipient, data, s, topics.data(), NumTopics);
@@ -1265,7 +1328,11 @@ inline TermResult selfdestruct(StackTop stack, int64_t gas_left, ExecutionState&
     if (state.in_static_mode())
         return {EVMC_STATIC_MODE_VIOLATION, gas_left};
 
+#ifdef __ZKLLVM__
+    const evmc::address beneficiary = stack[0];
+#else
     const auto beneficiary = intx::be::trunc<evmc::address>(stack[0]);
+#endif
 
     if (state.rev >= EVMC_BERLIN && state.host.access_account(beneficiary) == EVMC_ACCESS_COLD)
     {
