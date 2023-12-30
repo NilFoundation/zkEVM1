@@ -158,6 +158,15 @@ enum Opcode : uint8_t
     OP_LOG3 = 0xa3,
     OP_LOG4 = 0xa4,
 
+    OP_MSTORE16 = 0xb0,
+    OP_MSTORE32 = 0xb1,
+    OP_MSTORE64 = 0xb2,
+
+    OP_MLOAD8 = 0xc0,
+    OP_MLOAD16 = 0xc1,
+    OP_MLOAD32 = 0xc2,
+    OP_MLOAD64 = 0xc3,
+
     OP_RJUMP = 0xe0,
     OP_RJUMPI = 0xe1,
     OP_RJUMPV = 0xe2,

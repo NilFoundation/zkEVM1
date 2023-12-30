@@ -118,9 +118,16 @@
     ON_OPCODE_UNDEFINED(0x4f)                               \
                                                             \
     ON_OPCODE_IDENTIFIER(OP_POP, pop)                       \
-    ON_OPCODE_IDENTIFIER(OP_MLOAD, mload)                   \
-    ON_OPCODE_IDENTIFIER(OP_MSTORE, mstore)                 \
-    ON_OPCODE_IDENTIFIER(OP_MSTORE8, mstore8)               \
+    ON_OPCODE_IDENTIFIER(OP_MLOAD, mload<uint256>)          \
+    ON_OPCODE_IDENTIFIER(OP_MLOAD8, mload<uint8_t>)         \
+    ON_OPCODE_IDENTIFIER(OP_MLOAD16, mload<uint16_t>)       \
+    ON_OPCODE_IDENTIFIER(OP_MLOAD32, mload<uint32_t>)       \
+    ON_OPCODE_IDENTIFIER(OP_MLOAD64, mload<uint64_t>)       \
+    ON_OPCODE_IDENTIFIER(OP_MSTORE, mstore<uint256>)        \
+    ON_OPCODE_IDENTIFIER(OP_MSTORE8, mstore<uint8_t>)       \
+    ON_OPCODE_IDENTIFIER(OP_MSTORE16, mstore<uint16_t>)     \
+    ON_OPCODE_IDENTIFIER(OP_MSTORE32, mstore<uint32_t>)     \
+    ON_OPCODE_IDENTIFIER(OP_MSTORE64, mstore<uint64_t>)     \
     ON_OPCODE_IDENTIFIER(OP_SLOAD, sload)                   \
     ON_OPCODE_IDENTIFIER(OP_SSTORE, sstore)                 \
     ON_OPCODE_IDENTIFIER(OP_JUMP, jump)                     \
@@ -219,9 +226,6 @@
     ON_OPCODE_UNDEFINED(0xae)                               \
     ON_OPCODE_UNDEFINED(0xaf)                               \
                                                             \
-    ON_OPCODE_UNDEFINED(0xb0)                               \
-    ON_OPCODE_UNDEFINED(0xb1)                               \
-    ON_OPCODE_UNDEFINED(0xb2)                               \
     ON_OPCODE_UNDEFINED(0xb3)                               \
     ON_OPCODE_UNDEFINED(0xb4)                               \
     ON_OPCODE_UNDEFINED(0xb5)                               \
@@ -236,10 +240,6 @@
     ON_OPCODE_UNDEFINED(0xbe)                               \
     ON_OPCODE_UNDEFINED(0xbf)                               \
                                                             \
-    ON_OPCODE_UNDEFINED(0xc0)                               \
-    ON_OPCODE_UNDEFINED(0xc1)                               \
-    ON_OPCODE_UNDEFINED(0xc2)                               \
-    ON_OPCODE_UNDEFINED(0xc3)                               \
     ON_OPCODE_UNDEFINED(0xc4)                               \
     ON_OPCODE_UNDEFINED(0xc5)                               \
     ON_OPCODE_UNDEFINED(0xc6)                               \

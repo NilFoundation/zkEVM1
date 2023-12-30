@@ -790,6 +790,7 @@ inline void selfbalance(StackTop stack, ExecutionState& state) noexcept
         );
 }
 
+template<typename T>
 inline Result mload(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     auto& index = stack.top();
@@ -797,10 +798,11 @@ inline Result mload(StackTop stack, int64_t gas_left, ExecutionState& state) noe
     if (!check_memory(gas_left, state.memory, index, 32))
         return {EVMC_OUT_OF_GAS, gas_left};
 
-    index = intx::be::unsafe::load<uint256>(&state.memory[static_cast<size_t>(index)]);
+    index = intx::be::unsafe::load<T>(&state.memory[static_cast<size_t>(index)]);
     return {EVMC_SUCCESS, gas_left};
 }
 
+template<typename T>
 inline Result mstore(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     const auto& index = stack.pop();
@@ -809,7 +811,7 @@ inline Result mstore(StackTop stack, int64_t gas_left, ExecutionState& state) no
     if (!check_memory(gas_left, state.memory, index, 32))
         return {EVMC_OUT_OF_GAS, gas_left};
 
-    intx::be::unsafe::store(&state.memory[static_cast<size_t>(index)], value);
+    intx::be::unsafe::store(&state.memory[static_cast<size_t>(index)], static_cast<T>(value));
     return {EVMC_SUCCESS, gas_left};
 }
 

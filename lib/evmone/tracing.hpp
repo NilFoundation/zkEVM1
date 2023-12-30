@@ -65,4 +65,6 @@ EVMC_EXPORT std::unique_ptr<Tracer> create_histogram_tracer(std::ostream& out);
 
 EVMC_EXPORT std::unique_ptr<Tracer> create_instruction_tracer(std::ostream& out);
 
+EVMC_EXPORT std::unique_ptr<Tracer> create_instruction_fast_tracer(std::ostream& out);
+
 }  // namespace evmone

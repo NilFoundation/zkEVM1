@@ -7,6 +7,7 @@
 #include "instructions_traits.hpp"
 #include <evmc/hex.hpp>
 #include <stack>
+#include <fstream>
 
 namespace evmone
 {
@@ -117,6 +118,20 @@ class InstructionTracer : public Tracer
         // but this should not be done by default. Adding --tracing=+memory option would be nice.
         m_out << R"(,"memSize":)" << std::dec << state.memory.size();
 
+#if 1  // Dump memory if it was changed
+        static bool memory_was_changed = false;
+        if (memory_was_changed) {
+            m_out << R"(,"memory":")" << evmc::hex({state.memory.data(), state.memory.size()})
+                  << '"';
+            memory_was_changed = false;
+        }
+        if (opcode == OP_MSTORE || opcode == OP_MSTORE8 || opcode == OP_CODECOPY ||
+            opcode == OP_MSTORE16 || opcode == OP_MSTORE32 || opcode == OP_MSTORE64)
+        {
+            memory_was_changed = true;
+        }
+#endif
+
         output_stack(stack_top, stack_height);
         if (!state.return_data.empty())
             m_out << R"(,"returnData":"0x)" << evmc::hex(state.return_data) << '"';
@@ -135,6 +150,75 @@ public:
         m_out << std::dec;  // Set number formatting to dec, JSON does not support other forms.
     }
 };
+
+
+class InstructionTracerFast : public Tracer
+{
+
+public:
+    explicit InstructionTracerFast(std::ostream& out) noexcept
+      : m_out(std::ofstream("trace.bin", std::ios::out | std::ios::binary))
+    {
+        (void)out;
+    }
+
+private:
+    void on_execution_start([[maybe_unused]] evmc_revision rev,
+        [[maybe_unused]] const evmc_message& msg, bytes_view code) noexcept override
+    {
+        m_code = code;
+    }
+
+    void on_execution_end([[maybe_unused]] const evmc_result& result) noexcept override
+    {
+    }
+
+    void on_instruction_start(uint32_t pc,
+        const intx::uint256* stack_top,
+        int stack_height,
+        int64_t gas,
+        [[maybe_unused]] const ExecutionState& state) noexcept override
+    {
+
+        static bool first = true;
+        const auto opcode = m_code[pc];
+        auto& traits = instr::traits[m_last_opcode];
+        [[maybe_unused]] int push_num = traits.stack_height_required + traits.stack_height_change;
+        if (m_last_opcode >= OP_DUP1 && m_last_opcode <= OP_DUP16) {
+            push_num = 1;
+        } else if (m_last_opcode >= OP_SWAP1 && m_last_opcode <= OP_SWAP16) {
+            push_num = 0;
+        }
+
+        assert((push_num & ~1) == 0);
+
+        if (!first)
+        {
+            if ( stack_height != 0)
+            {
+                m_out.write((const char*)&stack_top[0], stack_top->num_bits/8);
+            }
+            else
+            {
+                constexpr const char s[32] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+                m_out.write(s, 32);
+            }
+        } else {
+            first = false;
+        }
+        m_out.write((char*)&pc, sizeof(uint32_t));
+        m_out.write((char*)&opcode, sizeof(char));
+        m_out.write((char*)&gas, sizeof(uint32_t));
+        m_last_opcode = (Opcode)opcode;
+    }
+
+private:
+    bytes_view m_code;
+    std::ofstream m_out;
+    Opcode m_last_opcode{OP_INVALID};
+};
+
 }  // namespace
 
 std::unique_ptr<Tracer> create_histogram_tracer(std::ostream& out)
@@ -146,4 +230,10 @@ std::unique_ptr<Tracer> create_instruction_tracer(std::ostream& out)
 {
     return std::make_unique<InstructionTracer>(out);
 }
+
+std::unique_ptr<Tracer> create_instruction_fast_tracer(std::ostream& out)
+{
+    return std::make_unique<InstructionTracerFast>(out);
+}
+
 }  // namespace evmone
