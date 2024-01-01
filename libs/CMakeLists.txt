@@ -5,6 +5,7 @@
 hunter_add_package(intx)
 find_package(intx CONFIG REQUIRED)
 
+add_subdirectory(crypto3)
 add_subdirectory(evmmax)
 add_subdirectory(evmone)
 add_subdirectory(evmone_precompiles)

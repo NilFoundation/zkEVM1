@@ -1,5 +1,5 @@
 [submodule "evmc"]
-	path = evmc
+	path = libs/evmc
 	url = https://github.com/ethereum/evmc
 [submodule "evm-benchmarks"]
 	path = test/evm-benchmarks

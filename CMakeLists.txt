@@ -119,8 +119,7 @@ endif()
 
 set(include_dir ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_subdirectory(libs/crypto3)
-add_subdirectory(lib)
+add_subdirectory(libs)
 
 if(EVMONE_TESTING)
     enable_testing()
