@@ -4,10 +4,6 @@
 
 cmake_minimum_required(VERSION 3.16...3.27)
 
-if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/evmc/.git)
-    message(FATAL_ERROR "Git submodules not initialized, execute:\n  git submodule update --init")
-endif()
-
 option(BUILD_SHARED_LIBS "Build evmone as a shared library" ON)
 option(EVMONE_TESTING "Build tests and test tools" OFF)
 option(EVMONE_FUZZING "Instrument libraries and build fuzzing tools" OFF)
@@ -41,7 +37,7 @@ find_package(ethash CONFIG REQUIRED)
 
 option(EVMC_TOOLS "Build EVMC test tools" ${EVMONE_TESTING})
 option(EVMC_INSTALL "Install EVMC" OFF)
-add_subdirectory(evmc)
+add_subdirectory(libs/evmc)
 
 cable_configure_compiler(NO_STACK_PROTECTION)
 if(CABLE_COMPILER_GNULIKE)
