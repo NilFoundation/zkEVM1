@@ -222,6 +222,37 @@ template <Opcode Op>
     return {new_pos, new_stack_top};
 }
 
+/// PRINTF opcode consumes variable number of operands, determined dynamically by the format string.
+/// This `invoke` specialization determines the stack shift according to the result of the Opcode
+/// handler.
+template <>
+[[release_inline]] inline Position invoke<Opcode::OP_PRINTF>(const CostTable& cost_table, const uint256* stack_bottom,
+    Position pos, int64_t& gas, ExecutionState& state) noexcept
+{
+    static constexpr Opcode Op = Opcode::OP_PRINTF;
+
+    if (const auto status = check_requirements<Op>(cost_table, gas, pos.stack_top, stack_bottom);
+        status != EVMC_SUCCESS)
+    {
+        state.status = status;
+        return {nullptr, pos.stack_top};
+    }
+    auto res = instr::core::impl<Op>(pos.stack_top, gas, state);
+    gas = res.gas_left;
+    code_iterator code_it;
+    if (res.status != EVMC_SUCCESS)
+    {
+        state.status = res.status;
+        code_it = nullptr;
+    } else
+    {
+        code_it = pos.code_it + 1;
+    }
+
+    const auto new_stack_top = pos.stack_top - res.stack_pop;
+    return {code_it, new_stack_top};
+}
+
 
 template <bool TracingEnabled>
 int64_t dispatch(const CostTable& cost_table, ExecutionState& state, int64_t gas,

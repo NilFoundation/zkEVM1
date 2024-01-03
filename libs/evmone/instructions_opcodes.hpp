@@ -157,6 +157,7 @@ enum Opcode : uint8_t
     OP_LOG2 = 0xa2,
     OP_LOG3 = 0xa3,
     OP_LOG4 = 0xa4,
+    OP_PRINTF = 0xa5,
 
     OP_MSTORE16 = 0xb0,
     OP_MSTORE32 = 0xb1,
