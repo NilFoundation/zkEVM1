@@ -30,9 +30,16 @@ add_library(evmone
         vm.hpp
 )
 target_compile_features(evmone PUBLIC cxx_std_20)
-target_link_libraries(evmone PUBLIC evmc::evmc intx::intx PRIVATE ethash::keccak crypto3::hash)
+target_link_libraries(evmone PUBLIC evmc::evmc intx::intx)
 target_include_directories(evmone PUBLIC
         $<BUILD_INTERFACE:${include_dir}>$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+get_target_property(FPRINTER_DIR fprinter SOURCE_DIR)
+target_include_directories(evmone PUBLIC ${FPRINTER_DIR})
+
+if(ZKLLVM_BUILD)
+    target_link_libraries(evmone PRIVATE ethash::keccak crypto3::hash)
+endif()
 
 if(EVMONE_X86_64_ARCH_LEVEL GREATER_EQUAL 2)
     # Add CPU architecture runtime check. The EVMONE_X86_64_ARCH_LEVEL has a valid value.
@@ -151,18 +158,20 @@ function(add_circuit name)
     set_target_properties(${name} PROPERTIES OUTPUT_NAME ${name}.ll)
 endfunction(add_circuit)
 
-add_circuit(evmone_circuit SOURCES
-        advanced_analysis.cpp
-        advanced_execution.cpp
-        advanced_instructions.cpp
-        baseline.cpp
-        baseline_instruction_table.cpp
-        eof.cpp
-        instructions_calls.cpp
-        instructions_storage.cpp
-        tracing.cpp
-        vm.cpp
-        LINK_LIBRARIES evmc::evmc intx::intx ethash::keccak crypto3::hash
-        INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include
-        COMPILER_OPTIONS -std=c++20 -DPROJECT_VERSION="dev" -DBOOST_ARCH_CURRENT_WORD_BITS=64
-)
+if (ZKLLVM_BUILD)
+    add_circuit(evmone_circuit SOURCES
+            advanced_analysis.cpp
+            advanced_execution.cpp
+            advanced_instructions.cpp
+            baseline.cpp
+            baseline_instruction_table.cpp
+            eof.cpp
+            instructions_calls.cpp
+            instructions_storage.cpp
+            tracing.cpp
+            vm.cpp
+            LINK_LIBRARIES evmc::evmc intx::intx ethash::keccak crypto3::hash
+            INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include
+            COMPILER_OPTIONS -std=c++20 -DPROJECT_VERSION="dev" -DBOOST_ARCH_CURRENT_WORD_BITS=64
+    )
+endif()

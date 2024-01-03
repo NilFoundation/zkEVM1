@@ -214,7 +214,7 @@
     ON_OPCODE_IDENTIFIER(OP_LOG2, log<2>)                   \
     ON_OPCODE_IDENTIFIER(OP_LOG3, log<3>)                   \
     ON_OPCODE_IDENTIFIER(OP_LOG4, log<4>)                   \
-    ON_OPCODE_UNDEFINED(0xa5)                               \
+    ON_OPCODE_IDENTIFIER(OP_PRINTF, printf)                 \
     ON_OPCODE_UNDEFINED(0xa6)                               \
     ON_OPCODE_UNDEFINED(0xa7)                               \
     ON_OPCODE_UNDEFINED(0xa8)                               \
